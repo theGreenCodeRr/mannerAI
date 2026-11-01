@@ -48,35 +48,45 @@ flowchart LR
 
 ## Biomechanical & Temporal Formulation
 
-### 1. 3D Diagonal-Invariant Bow Angle ($\theta(t)$)
-To prevent self-occlusion of the hip hinge and cervical spine, candidates stand at a $30^\circ\text{--}45^\circ$ diagonal yaw relative to the camera optical axis. Simple 2D screen-space projection fails under diagonal yaw, so inclination is formulated in 3D metric world space using MediaPipe `worldLandmarks`:
+### 1. 3D Diagonal-Invariant Bow Angle (θ(t))
+
+To prevent self-occlusion of the hip hinge and cervical spine, candidates stand at a 30°–45° diagonal yaw relative to the camera optical axis. Simple 2D screen-space projection fails under diagonal yaw, so inclination is formulated in 3D metric world space using MediaPipe `worldLandmarks`:
 
 1. **Torso Vector Definition:**
-   $$\vec{v}_{\text{torso}}(t) = \frac{P_{11}(t) + P_{12}(t)}{2} - \frac{P_{23}(t) + P_{24}(t)}{2}$$
-   where landmarks $(11, 12)$ denote the left and right shoulders and $(23, 24)$ denote the left and right hips.
 
-2. **Upright Baseline Calibration ($t \in [0, 1000\text{ ms}]$):**
-   $$\vec{v}_{\text{base}} = \frac{1}{N_{\text{cal}}} \sum_{t \le 1.0\text{s}} \vec{v}_{\text{torso}}(t)$$
+$$\vec{v}_{\mathrm{torso}}(t) = \frac{P_{11}(t) + P_{12}(t)}{2} - \frac{P_{23}(t) + P_{24}(t)}{2}$$
+
+where landmarks `(11, 12)` denote the left and right shoulders and `(23, 24)` denote the left and right hips.
+
+2. **Upright Baseline Calibration (t ∈ [0, 1000 ms]):**
+
+$$\vec{v}_{\mathrm{base}} = \frac{1}{N_{\mathrm{cal}}} \sum_{t \le 1.0\,\mathrm{s}} \vec{v}_{\mathrm{torso}}(t)$$
 
 3. **3D Inclination Angle & Temporal Smoothing:**
-   $$\theta_{\text{raw}}(t) = \arccos\left(\text{clip}\left(\frac{\vec{v}_{\text{torso}}(t) \cdot \vec{v}_{\text{base}}}{\|\vec{v}_{\text{torso}}(t)\| \, \|\vec{v}_{\text{base}}\|}, -1.0, 1.0\right)\right) \times \frac{180}{\pi}$$
-   A 5-frame uniform moving average filter suppresses single-frame keypoint estimation jitter while preserving peak bow dynamics.
+
+$$\theta_{\mathrm{raw}}(t) = \arccos\left(\mathrm{clip}\left(\frac{\vec{v}_{\mathrm{torso}}(t) \cdot \vec{v}_{\mathrm{base}}}{\lVert \vec{v}_{\mathrm{torso}}(t) \rVert \, \lVert \vec{v}_{\mathrm{base}} \rVert}, -1.0, 1.0\right)\right) \times \frac{180}{\pi}$$
+
+A 5-frame uniform moving average filter suppresses single-frame keypoint estimation jitter while preserving peak bow dynamics.
 
 4. **Cervical Spine Alignment (*Kubi-ojigi* Detection):**
-   $$\vec{v}_{\text{neck}}(t) = \frac{P_{7}(t) + P_{8}(t)}{2} - \frac{P_{11}(t) + P_{12}(t)}{2}$$
-   Angular deviation between $\vec{v}_{\text{torso}}(t)$ and $\vec{v}_{\text{neck}}(t)$ exceeding $18.0^\circ$ flags forward head flexion (*Kubi-ojigi*).
+
+$$\vec{v}_{\mathrm{neck}}(t) = \frac{P_{7}(t) + P_{8}(t)}{2} - \frac{P_{11}(t) + P_{12}(t)}{2}$$
+
+Angular deviation between `v_torso(t)` and `v_neck(t)` exceeding `18.0°` flags forward head flexion (*Kubi-ojigi*).
 
 ### 2. Target Bow Modes
-| Bow Mode (日本語 / Romaji) | Target Angle | Passing Peak Window ($\theta_{\max}$) | Typical Interview Context |
+
+| Bow Mode (日本語 / Romaji) | Target Angle | Passing Peak Window (`θ_max`) | Typical Interview Context |
 | :--- | :---: | :---: | :--- |
-| **会釈 (Eshaku)** | `15°` | $11.0^\circ \le \theta_{\max} \le 20.0^\circ$ | Entering/passing in corridors, seated acknowledgment |
-| **敬礼 (Keirei)** | `30°` | $25.0^\circ \le \theta_{\max} \le 35.0^\circ$ | Standard room entry greeting (`よろしくお願いいたします`) |
-| **最敬礼 (Saikeirei)** [Default] | `45°` | $40.0^\circ \le \theta_{\max} \le 50.0^\circ$ | Deep gratitude at interview conclusion (`ありがとうございました`) |
+| **会釈 (Eshaku)** | `15°` | `11.0° ≤ θ_max ≤ 20.0°` | Entering/passing in corridors, seated acknowledgment |
+| **敬礼 (Keirei)** | `30°` | `25.0° ≤ θ_max ≤ 35.0°` | Standard room entry greeting (`よろしくお願いいたします`) |
+| **最敬礼 (Saikeirei)** [Default] | `45°` | `40.0° ≤ θ_max ≤ 50.0°` | Deep gratitude at interview conclusion (`ありがとうございました`) |
 
 ### 3. Temporal Verification of *Gosen-reirei* (語先後礼)
-Formal Japanese business etiquette mandates completing the verbal greeting prior to initiating hip flexion (*Gosen-reirei*), prohibiting simultaneous speaking and bowing (*Dojirei* / 同時礼). Given word intervals $[t_{\text{word\_start}}, t_{\text{word\_end}}]$ from `faster-whisper` and the bow interval $[t_{\text{bow\_start}}, t_{\text{bow\_end}}]$:
 
-$$t_{\text{bow\_start}} \ge t_{\text{speech\_end}} - 150\text{ ms} \quad \text{and} \quad \forall t \in [t_{\text{word\_start}}, t_{\text{word\_end}} - 150\text{ ms}], \; \theta(t) \le 15.0^\circ$$
+Formal Japanese business etiquette mandates completing the verbal greeting prior to initiating hip flexion (*Gosen-reirei*), prohibiting simultaneous speaking and bowing (*Dojirei* / 同時礼). Given word intervals `[t_wordStart, t_wordEnd]` from `faster-whisper` and the bow interval `[t_bowStart, t_bowEnd]`:
+
+$$t_{\mathrm{bowStart}} \ge t_{\mathrm{speechEnd}} - 150\,\mathrm{ms} \quad \text{and} \quad \forall t \in [t_{\mathrm{wordStart}}, \, t_{\mathrm{wordEnd}} - 150\,\mathrm{ms}], \; \theta(t) \le 15.0^\circ$$
 
 Any violation zeroes the 30-point *Gosen-reirei* allocation and emits a timestamped timeline marker (`00:14 語先後礼違反`).
 
@@ -86,23 +96,23 @@ Any violation zeroes the 30-point *Gosen-reirei* allocation and emits a timestam
 
 | Criterion | Max Score | Passing Condition & Deduction Formula |
 | :--- | :---: | :--- |
-| **1. Bow Angle (お辞儀角度)** | `30 pts` | Primary bow interval must sustain $\theta(t) > 10^\circ$ for $\ge 0.4\text{s}$. Full 30 pts if $\theta_{\max}$ is within the mode window; $-1.5\text{ pts}$ per degree of error outside the window (minimum 0). |
-| **2. Gosen-reirei (語先後礼)** | `30 pts` | Full 30 pts if speech and bow (> $15^\circ$) are cleanly separated; 0 pts if simultaneous bow (*Dojirei*) is detected. |
-| **3. Posture & Symmetry (立位姿勢)** | `20 pts` | Across upright frames ($\theta(t) \le 10^\circ$), checks lateral shoulder levelness ($\vert y_{11} - y_{12}\vert < 0.035$) and cervical alignment ($\le 18^\circ$). Passes (20 pts) if $\ge 80\%$ of upright frames are stable. |
-| **4. Filler Words (つなぎ言葉)** | `20 pts` | Detects `["あの", "あのー", "えっと", "えーと", "えー", "その", "なんか", "まあ"]`. 0 fillers = 20 pts (`PASS`); 1–2 fillers = 10 pts (`FAIL`); $\ge 3$ fillers = 0 pts (`FAIL`). |
+| **1. Bow Angle (お辞儀角度)** | `30 pts` | Primary bow interval must sustain `θ(t) > 10°` for `≥ 0.4 s`. Full 30 pts if `θ_max` is within the mode window; `-1.5 pts` per degree of error outside the window (minimum 0). |
+| **2. Gosen-reirei (語先後礼)** | `30 pts` | Full 30 pts if speech and bow (`> 15°`) are cleanly separated; 0 pts if simultaneous bow (*Dojirei*) is detected. |
+| **3. Posture & Symmetry (立位姿勢)** | `20 pts` | Across upright frames (`θ(t) ≤ 10°`), checks lateral shoulder levelness (`|y_11 - y_12| < 0.035`) and cervical alignment (`≤ 18°`). Passes (20 pts) if `≥ 80%` of upright frames are stable. |
+| **4. Filler Words (つなぎ言葉)** | `20 pts` | Detects `["あの", "あのー", "えっと", "えーと", "えー", "その", "なんか", "まあ"]`. 0 fillers = 20 pts (`PASS`); 1–2 fillers = 10 pts (`FAIL`); `≥ 3` fillers = 0 pts (`FAIL`). |
 
 ---
 
 ## Team Module Ownership & Data Contract (5-Engineer Decoupled Layout)
 
-To prevent merge conflicts during parallel development, the codebase is partitioned into cinco isolated domain modules communicating strictly through `backend/schemas.py` and `shared/sample_diagnostic.json`:
+To prevent merge conflicts during parallel development, the codebase is partitioned into five isolated domain modules communicating strictly through `backend/schemas.py` and `shared/sample_diagnostic.json`:
 
 | Engineer Role | Assigned Directory | Primary Files | Input / Output Contract | Independent Verification Command |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. ASR & Disfluency Engineer** | `backend/asr/` | `whisper_engine.py` | Audio file $\rightarrow$ `(transcript_text, List[WordToken], List[FillerOccurrence])` | `pytest backend/tests/test_manner_engine.py -k filler` |
-| **2. 3D Kinematics Engineer** | `backend/kinematics/` | `bow_evaluator.py` | `List[PoseFrame]` $\rightarrow$ `(BowIntervalSummary, PostureSummary, ideal_frames)` | `pytest backend/tests/test_manner_engine.py -k bow` |
-| **3. Etiquette Scoring & API Engineer** | `backend/scoring/`, `backend/main.py` | `manner_scorer.py`, `schemas.py`, `main.py` | `PoseFrame[] + WordToken[]` $\rightarrow$ `DiagnosticResponse` JSON | `pytest backend/tests/test_manner_engine.py` |
-| **4. Client Vision & Audio Engineer** | `frontend/src/modules/` | `usePoseTracker.js`, `kinematicsMath.js`, `useAudioRecorder.js`, `StickFigureCanvas.jsx` | Webcam/Mic streams $\rightarrow$ 30 FPS `PoseFrame` & dual-canvas projection | `npm --prefix frontend run build` |
+| **1. ASR & Disfluency Engineer** | `backend/asr/` | `whisper_engine.py` | Audio file → `(transcript_text, List[WordToken], List[FillerOccurrence])` | `pytest backend/tests/test_manner_engine.py -k filler` |
+| **2. 3D Kinematics Engineer** | `backend/kinematics/` | `bow_evaluator.py` | `List[PoseFrame]` → `(BowIntervalSummary, PostureSummary, ideal_frames)` | `pytest backend/tests/test_manner_engine.py -k bow` |
+| **3. Etiquette Scoring & API Engineer** | `backend/scoring/`, `backend/main.py` | `manner_scorer.py`, `schemas.py`, `main.py` | `PoseFrame[] + WordToken[]` → `DiagnosticResponse` JSON | `pytest backend/tests/test_manner_engine.py` |
+| **4. Client Vision & Audio Engineer** | `frontend/src/modules/` | `usePoseTracker.js`, `kinematicsMath.js`, `useAudioRecorder.js`, `StickFigureCanvas.jsx` | Webcam/Mic streams → 30 FPS `PoseFrame` & dual-canvas projection | `npm --prefix frontend run build` |
 | **5. Diagnostic UI & UX Engineer** | `frontend/src/components/` | `Navbar.jsx`, `PracticeView.jsx`, `DiagnosticDashboard.jsx`, `ScoreCard.jsx`, `TimelineBar.jsx` | Renders `shared/sample_diagnostic.json` via `Load Sample Data` without backend | `npm --prefix frontend run dev` (click `サンプル結果を表示`) |
 
 ---
@@ -141,7 +151,7 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:5173` in a Chromium-based browser.
-- To inspect the **Post-Session Diagnostic Dashboard** immediately without a webcam or running backend, click **`サンプル結果を表示 (Load Sample Data)`** in the top navigation bar.
+- To inspect the **Post-Session Diagnostic Dashboard** immediately without a webcam or running backend, click **`サンプル結果を表示 (Sample)`** in the top navigation bar.
 
 ### 3. Automated High-DPI Screenshot Generation
 
@@ -150,4 +160,3 @@ With the frontend server running on `http://127.0.0.1:5173`:
 node scripts/capture_screenshots.mjs
 ```
 This script launches headless Chromium at `1440x900` (`deviceScaleFactor: 2`) and writes `docs/screenshots/live_practice_view.png` and `docs/screenshots/diagnostic_split_view.png`.
-
