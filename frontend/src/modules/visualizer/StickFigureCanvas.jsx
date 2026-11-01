@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { LANDMARK_INDEX, TARGET_BOW_MODES } from '../pose/kinematicsMath.js';
+import InfoPopover from '../../components/InfoPopover.jsx';
 
 const SKELETAL_CONNECTIONS = [
   [LANDMARK_INDEX.LEFT_SHOULDER, LANDMARK_INDEX.RIGHT_SHOULDER],
@@ -17,8 +18,8 @@ const SKELETAL_CONNECTIONS = [
 ];
 
 /**
- * Renders a technical grid, skeletal limbs, spinal/cervical alignment vectors,
- * and a dynamic hip-pivot inclination arc on a 2D HTML5 canvas.
+ * Renders skeletal joints, torso inclination vector, and a dynamic hip-pivot
+ * angle arc onto an HTML5 `<canvas>`.
  */
 export function drawSkeletonOnCanvas(ctx, width, height, frame, options = {}) {
   const {
@@ -28,18 +29,18 @@ export function drawSkeletonOnCanvas(ctx, width, height, frame, options = {}) {
     violationLabel = '',
     peakMeasuredDeg = null,
     drawBackground = true,
+    mirrorHorizontal = false,
   } = options;
 
   ctx.clearRect(0, 0, width, height);
 
   if (drawBackground) {
-    ctx.fillStyle = '#09090b';
+    ctx.fillStyle = '#f8fafc'; // slate-50 light background
     ctx.fillRect(0, 0, width, height);
 
-    // Subtle 24px technical coordinate grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)';
     ctx.lineWidth = 1;
-    const step = 24;
+    const step = 28;
     for (let x = 0; x < width; x += step) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -62,31 +63,29 @@ export function drawSkeletonOnCanvas(ctx, width, height, frame, options = {}) {
   const angle = frame.torso_angle_deg ?? 0.0;
   const targetWindow = TARGET_BOW_MODES[targetAngleDeg] || TARGET_BOW_MODES[45];
 
-  // Determine stroke palette based on viewport mode and biometric threshold compliance
-  let primaryStroke = '#94a3b8'; // neutral slate-400 for normal upright stance
-  let accentFill = 'rgba(148, 163, 184, 0.16)';
-  let statusBadgeColor = '#e4e4e7';
+  let primaryStroke = '#475569'; // slate-600
+  let accentFill = 'rgba(71, 85, 105, 0.14)';
+  let statusBadgeColor = '#1e293b';
 
   if (mode === 'ideal') {
-    primaryStroke = '#10b981'; // emerald-500
-    accentFill = 'rgba(16, 185, 129, 0.18)';
-    statusBadgeColor = '#34d399';
+    primaryStroke = '#059669'; // emerald-600
+    accentFill = 'rgba(16, 185, 129, 0.20)';
+    statusBadgeColor = '#047857';
   } else if (mode === 'live') {
     if (angle >= targetWindow.minDeg && angle <= targetWindow.maxDeg) {
       primaryStroke = '#10b981';
-      accentFill = 'rgba(16, 185, 129, 0.20)';
-      statusBadgeColor = '#34d399';
+      accentFill = 'rgba(16, 185, 129, 0.28)';
+      statusBadgeColor = '#059669';
     } else if (angle > targetWindow.maxDeg) {
-      primaryStroke = '#f43f5e';
-      accentFill = 'rgba(244, 63, 94, 0.22)';
-      statusBadgeColor = '#fb7185';
+      primaryStroke = '#e11d48';
+      accentFill = 'rgba(225, 29, 72, 0.28)';
+      statusBadgeColor = '#be123c';
     } else {
-      primaryStroke = '#38bdf8';
-      accentFill = 'rgba(56, 189, 248, 0.18)';
-      statusBadgeColor = '#7dd3fc';
+      primaryStroke = '#0284c7';
+      accentFill = 'rgba(2, 132, 199, 0.24)';
+      statusBadgeColor = drawBackground ? '#0369a1' : '#ffffff';
     }
   } else {
-    // 'actual' diagnostic replay mode
     const isOverBow = angle > targetWindow.maxDeg;
     const isActiveUnderBow =
       angle > 12.0 &&
@@ -95,22 +94,22 @@ export function drawSkeletonOnCanvas(ctx, width, height, frame, options = {}) {
       peakMeasuredDeg < targetWindow.minDeg;
 
     if (isOverBow || hasViolation) {
-      primaryStroke = '#f43f5e'; // rose-500 for over-bow / Gosen-reirei violation
-      accentFill = 'rgba(244, 63, 94, 0.22)';
-      statusBadgeColor = '#fda4af';
+      primaryStroke = '#e11d48'; // rose-600
+      accentFill = 'rgba(225, 29, 72, 0.20)';
+      statusBadgeColor = '#be123c';
     } else if (isActiveUnderBow || !frame.posture_ok) {
-      primaryStroke = '#f59e0b'; // amber-500
-      accentFill = 'rgba(245, 158, 11, 0.20)';
-      statusBadgeColor = '#fcd34d';
+      primaryStroke = '#d97706'; // amber-600
+      accentFill = 'rgba(217, 119, 6, 0.20)';
+      statusBadgeColor = '#b45309';
     } else if (angle >= targetWindow.minDeg && angle <= targetWindow.maxDeg) {
-      primaryStroke = '#10b981';
-      accentFill = 'rgba(16, 185, 129, 0.18)';
-      statusBadgeColor = '#6ee7b7';
+      primaryStroke = '#059669';
+      accentFill = 'rgba(5, 150, 105, 0.20)';
+      statusBadgeColor = '#047857';
     }
   }
 
   const toCanvasPt = (pt) => ({
-    x: pt.x * width,
+    x: (mirrorHorizontal ? 1.0 - pt.x : pt.x) * width,
     y: pt.y * height,
   });
 
@@ -122,23 +121,25 @@ export function drawSkeletonOnCanvas(ctx, width, height, frame, options = {}) {
   const rEar = toCanvasPt(lm[LANDMARK_INDEX.RIGHT_EAR]);
 
   const shMid = { x: (lSh.x + rSh.x) * 0.5, y: (lSh.y + rSh.y) * 0.5 };
-  const hipMid = { x: (lHip.x + rHip.y * 0 + rHip.x) * 0.5, y: (lHip.y + rHip.y) * 0.5 };
+  const hipMid = { x: (lHip.x + rHip.x) * 0.5, y: (lHip.y + rHip.y) * 0.5 };
   const earMid = { x: (lEar.x + rEar.x) * 0.5, y: (lEar.y + rEar.y) * 0.5 };
 
-  // 1. Vertical upright reference axis & target angle guide ray from hip pivot
+  // 1. Vertical upright reference line & target angle ray from hip pivot
   const guideRadius = Math.min(width, height) * 0.34;
   ctx.save();
-  ctx.setLineDash([4, 4]);
-  ctx.strokeStyle = 'rgba(161, 161, 170, 0.35)';
-  ctx.lineWidth = 1.25;
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = drawBackground
+    ? 'rgba(100, 116, 139, 0.45)'
+    : 'rgba(255, 255, 255, 0.55)';
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(hipMid.x, hipMid.y);
   ctx.lineTo(hipMid.x, hipMid.y - guideRadius);
   ctx.stroke();
 
-  // Target inclination reference ray (-targetAngleDeg from vertical upward)
-  const targetRad = -Math.PI / 2 - (targetAngleDeg * Math.PI) / 180.0;
-  ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+  const bowDirection = shMid.x <= hipMid.x ? -1 : 1;
+  const targetRad = -Math.PI / 2 + bowDirection * ((targetAngleDeg * Math.PI) / 180.0);
+  ctx.strokeStyle = 'rgba(16, 185, 129, 0.65)';
   ctx.beginPath();
   ctx.moveTo(hipMid.x, hipMid.y);
   ctx.lineTo(
@@ -148,28 +149,29 @@ export function drawSkeletonOnCanvas(ctx, width, height, frame, options = {}) {
   ctx.stroke();
   ctx.restore();
 
-  // 2. Dynamic hip-pivot angle gauge arc between vertical axis (-PI/2) and current torso vector
+  // 2. Dynamic hip-pivot angle gauge arc
   const torsoVecAngle = Math.atan2(shMid.y - hipMid.y, shMid.x - hipMid.x);
   const arcRadius = Math.min(width, height) * 0.16;
+  const anticlockwise = shMid.x < hipMid.x;
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(hipMid.x, hipMid.y);
-  ctx.arc(hipMid.x, hipMid.y, arcRadius, -Math.PI / 2, torsoVecAngle, true);
+  ctx.arc(hipMid.x, hipMid.y, arcRadius, -Math.PI / 2, torsoVecAngle, anticlockwise);
   ctx.closePath();
   ctx.fillStyle = accentFill;
   ctx.fill();
 
   ctx.beginPath();
-  ctx.arc(hipMid.x, hipMid.y, arcRadius, -Math.PI / 2, torsoVecAngle, true);
+  ctx.arc(hipMid.x, hipMid.y, arcRadius, -Math.PI / 2, torsoVecAngle, anticlockwise);
   ctx.strokeStyle = primaryStroke;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.25;
   ctx.stroke();
   ctx.restore();
 
   // 3. Draw anatomical limb connections
   ctx.save();
   ctx.strokeStyle = primaryStroke;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 3;
   ctx.lineCap = 'round';
   for (const [idxA, idxB] of SKELETAL_CONNECTIONS) {
     const ptA = toCanvasPt(lm[idxA]);
@@ -180,20 +182,19 @@ export function drawSkeletonOnCanvas(ctx, width, height, frame, options = {}) {
     ctx.stroke();
   }
 
-  // 4. Emphasized central torso vector & cervical spine vector
-  ctx.strokeStyle = '#fafafa';
-  ctx.lineWidth = 3;
+  // 4. Emphasized central torso & neck spine vector
+  ctx.strokeStyle = drawBackground ? '#0f172a' : '#ffffff';
+  ctx.lineWidth = 3.25;
   ctx.beginPath();
   ctx.moveTo(hipMid.x, hipMid.y);
   ctx.lineTo(shMid.x, shMid.y);
   ctx.lineTo(earMid.x, earMid.y);
   ctx.stroke();
 
-  // Head circle around ear midpoint
   ctx.beginPath();
   ctx.arc(earMid.x, earMid.y, Math.min(width, height) * 0.042, 0, Math.PI * 2);
   ctx.strokeStyle = primaryStroke;
-  ctx.lineWidth = 2.25;
+  ctx.lineWidth = 2.5;
   ctx.stroke();
   ctx.restore();
 
@@ -216,42 +217,37 @@ export function drawSkeletonOnCanvas(ctx, width, height, frame, options = {}) {
   for (const idx of keyIndices) {
     const pt = toCanvasPt(lm[idx]);
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#09090b';
+    ctx.arc(pt.x, pt.y, 4.2, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
     ctx.fill();
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.2;
     ctx.strokeStyle = primaryStroke;
     ctx.stroke();
   }
 
-  // Emphasize hip pivot point
   ctx.beginPath();
-  ctx.arc(hipMid.x, hipMid.y, 5.5, 0, Math.PI * 2);
+  ctx.arc(hipMid.x, hipMid.y, 6, 0, Math.PI * 2);
   ctx.fillStyle = primaryStroke;
   ctx.fill();
 
-  // 6. Angle readout label near hip pivot
+  // 6. Angle readout label
   ctx.save();
-  ctx.font = '600 13px "JetBrains Mono", monospace';
+  ctx.font = '700 13px "JetBrains Mono", monospace';
   ctx.fillStyle = statusBadgeColor;
   ctx.fillText(
-    `θ = ${angle.toFixed(1)}°`,
+    `${angle.toFixed(1)}°`,
     hipMid.x + 14,
     hipMid.y - arcRadius * 0.45
   );
 
   if (violationLabel) {
     ctx.font = '600 11px "Inter", sans-serif';
-    ctx.fillStyle = '#fda4af';
+    ctx.fillStyle = '#e11d48';
     ctx.fillText(violationLabel, 14, height - 14);
   }
   ctx.restore();
 }
 
-/**
- * Split-screen dual-canvas skeletal comparison component for the Post-Session Diagnostic Dashboard.
- * Renders the Ideal Target skeleton on the left and the User's Actual recorded skeleton on the right.
- */
 export default function StickFigureCanvas({
   idealFrame,
   actualFrame,
@@ -280,7 +276,7 @@ export default function StickFigureCanvas({
     const hasGosenOrBowViolation = activeEvents.some(
       (ev) => ev.category === 'gosen_reirei' || ev.category === 'bow_angle'
     );
-    const activeBadgeText = activeEvents.map((e) => e.label_ja).join(' / ');
+    const activeBadgeText = activeEvents.map((e) => e.label_ja).join(' · ');
 
     drawSkeletonOnCanvas(ctx, canvas.width, canvas.height, actualFrame, {
       mode: 'actual',
@@ -298,57 +294,59 @@ export default function StickFigureCanvas({
   const isActualExcessive = actualAngle > targetMeta.maxDeg;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {/* Left Canvas: Ideal Reference Motion */}
-      <div className="border border-zinc-800 bg-zinc-950 rounded-sm overflow-hidden flex flex-col">
-        <div className="px-3 py-2 border-b border-zinc-800 bg-zinc-900/70 flex items-center justify-between">
-          <div>
-            <div className="text-xs font-semibold text-emerald-400 tracking-tight">
-              目標の動作 / What SHOULD be performed — Ideal
-            </div>
-            <div className="text-[11px] text-zinc-400">
-              Target: {targetBowAngle}° Bow ({targetMeta.nameJa}) ・ 頸椎直線維持
-            </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Left Canvas: Ideal Reference */}
+      <div className="border border-slate-200 bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
+        <div className="px-4 py-2.5 border-b border-slate-100 bg-emerald-50/50 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-emerald-800">
+              お手本 (Ideal {targetBowAngle}°)
+            </span>
+            <InfoPopover title="Ideal Reference Skeleton" align="left">
+              挨拶の発声終了後に腰からまっすぐ {targetBowAngle}°（適正 {targetMeta.minDeg}°〜{targetMeta.maxDeg}°）傾ける理想的な動作モデルです。
+            </InfoPopover>
           </div>
-          <span className="font-mono tabular-nums text-xs px-2 py-0.5 rounded-sm bg-emerald-950/80 border border-emerald-700/60 text-emerald-300">
+          <span className="font-mono tabular-nums text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
             {idealAngle.toFixed(1)}°
           </span>
         </div>
-        <div className="relative aspect-[4/3] w-full bg-zinc-950">
+
+        <div className="relative aspect-[4/3] w-full bg-slate-50">
           <canvas
             ref={idealCanvasRef}
             width={420}
             height={315}
             className="w-full h-full block"
           />
-          <div className="absolute top-2.5 left-2.5 px-2 py-1 bg-zinc-900/90 border border-emerald-800/60 text-[11px] font-mono text-emerald-300 rounded-sm">
-            Target: {targetBowAngle}° Bow (適正範囲 {targetMeta.minDeg}°–{targetMeta.maxDeg}°)
+          <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur border border-emerald-200 text-[11px] font-semibold text-emerald-800 rounded-lg shadow-sm">
+            Target: {targetBowAngle}° Bow
           </div>
         </div>
       </div>
 
-      {/* Right Canvas: User's Actual Recorded Motion */}
-      <div className="border border-zinc-800 bg-zinc-950 rounded-sm overflow-hidden flex flex-col">
-        <div className="px-3 py-2 border-b border-zinc-800 bg-zinc-900/70 flex items-center justify-between">
-          <div>
-            <div className="text-xs font-semibold text-rose-400 tracking-tight">
-              実施した動作 / What WAS performed — Actual
-            </div>
-            <div className="text-[11px] text-zinc-400">
-              Result: {peakActualAngleDeg.toFixed(0)}° Peak Bow ・ 3D骨格リプレイ (動画非保存)
-            </div>
+      {/* Right Canvas: Actual Recorded */}
+      <div className="border border-slate-200 bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
+        <div className="px-4 py-2.5 border-b border-slate-100 bg-rose-50/40 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-800">
+              あなたの動作 (Actual)
+            </span>
+            <InfoPopover title="Actual Recorded Skeleton">
+              記録された3D骨格データのリプレイです。目標範囲を超過または同時礼が発生したフレームは赤色で強調表示されます。
+            </InfoPopover>
           </div>
           <span
-            className={`font-mono tabular-nums text-xs px-2 py-0.5 rounded-sm border ${
+            className={`font-mono tabular-nums text-xs font-bold px-2.5 py-0.5 rounded-full ${
               isActualExcessive
-                ? 'bg-rose-950/80 border-rose-700/70 text-rose-300'
-                : 'bg-zinc-900 border-zinc-700 text-zinc-200'
+                ? 'bg-rose-100 text-rose-700'
+                : 'bg-slate-100 text-slate-700'
             }`}
           >
             {actualAngle.toFixed(1)}°
           </span>
         </div>
-        <div className="relative aspect-[4/3] w-full bg-zinc-950">
+
+        <div className="relative aspect-[4/3] w-full bg-slate-50">
           <canvas
             ref={actualCanvasRef}
             width={420}
@@ -356,17 +354,16 @@ export default function StickFigureCanvas({
             className="w-full h-full block"
           />
           <div
-            className={`absolute top-2.5 left-2.5 px-2 py-1 border text-[11px] font-mono rounded-sm ${
+            className={`absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur border text-[11px] font-semibold rounded-lg shadow-sm ${
               isActualExcessive
-                ? 'bg-rose-950/90 border-rose-700 text-rose-200'
-                : 'bg-zinc-900/90 border-zinc-700 text-zinc-300'
+                ? 'border-rose-300 text-rose-700'
+                : 'border-slate-200 text-slate-700'
             }`}
           >
-            Result: {peakActualAngleDeg.toFixed(0)}° Bow (現在角 {actualAngle.toFixed(1)}°)
+            Result: {peakActualAngleDeg.toFixed(0)}° Peak (現在 {actualAngle.toFixed(1)}°)
           </div>
         </div>
       </div>
     </div>
   );
 }
-

@@ -88,8 +88,11 @@ async def analyze_session(
             logger.info("Empty or minimal audio buffer received; proceeding with kinematic-only evaluation.")
             transcript_text, words, fillers = "", [], []
     except Exception as exc:
-        logger.error("ASR transcription failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Audio transcription failure: {exc}") from exc
+        logger.warning(
+            "ASR transcription encountered an error (%s); proceeding with kinematic evaluation.",
+            exc,
+        )
+        transcript_text, words, fillers = "(音声認識スキップ / Audio analysis skipped)", [], []
     finally:
         tmp_path.unlink(missing_ok=True)
 

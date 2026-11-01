@@ -1,11 +1,7 @@
 import React from 'react';
 import { Activity, Database, ShieldCheck, Video } from 'lucide-react';
+import InfoPopover from './InfoPopover.jsx';
 
-/**
- * Top navigation and control header.
- * Provides Target Bow mode selection (45°, 30°, 15°), view switching,
- * and instant loading of `shared/sample_diagnostic.json`.
- */
 export default function Navbar({
   activeView,
   onSelectView,
@@ -14,77 +10,96 @@ export default function Navbar({
   onLoadSampleData,
 }) {
   return (
-    <header className="border-b border-zinc-800 bg-zinc-950/95 backdrop-blur sticky top-0 z-30">
-      <div className="max-w-[1440px] mx-auto px-4 h-14 flex items-center justify-between gap-4">
+    <header className="border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-30">
+      <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
         {/* Brand Identity */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-sm bg-zinc-900 border border-zinc-700 flex items-center justify-center">
-            <Activity className="w-4 h-4 text-emerald-400" />
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shadow-sm">
+            <Activity className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="flex items-baseline gap-2.5 shrink-0">
-            <span className="font-semibold tracking-tight text-zinc-100 text-base whitespace-nowrap">
-              MannerAI
-            </span>
-            <span className="text-zinc-600 text-xs">|</span>
-            <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">
-              面接マナー・姿勢解析システム
-            </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold tracking-tight text-slate-900 text-base">
+                MannerAI
+              </span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
+                面接マナー解析
+              </span>
+            </div>
           </div>
-          <div className="hidden xl:flex items-center gap-1.5 ml-2 px-2 py-0.5 rounded-sm bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400 whitespace-nowrap shrink-0">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>Privacy: No Raw Video Saved (3D座標のみ記録)</span>
+
+          <div className="hidden md:flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-full bg-emerald-50/70 border border-emerald-200/80 text-xs text-emerald-800">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>No Video Saved</span>
+            <InfoPopover title="Privacy Mode (動画非保存)" align="left">
+              カメラ映像はブラウザ内での3D骨格座標抽出にのみ使用され、動画ファイルは一切保存・送信されません。
+            </InfoPopover>
           </div>
         </div>
 
-        {/* Controls: Target Bow Selector + View Switcher + Sample Diagnostic Loader */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-sm">
+        {/* Right Controls */}
+        <div className="flex items-center gap-2.5">
+          {/* Target Bow Selector */}
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
             <label
               htmlFor="target-bow-select"
-              className="text-[11px] text-zinc-400 font-medium whitespace-nowrap"
+              className="text-xs text-slate-500 font-medium whitespace-nowrap"
             >
-              目標角度 (Target Bow):
+              目標 (Target):
             </label>
             <select
               id="target-bow-select"
               aria-label="Target Bow Angle"
               value={targetBowAngle}
               onChange={(e) => onChangeTargetBowAngle(Number(e.target.value))}
-              className="bg-zinc-950 border border-zinc-700 text-zinc-100 text-xs font-mono px-2 py-0.5 rounded-sm focus:outline-none focus:border-emerald-500"
+              className="bg-white border border-slate-200 text-slate-800 text-xs font-semibold px-2 py-1 rounded-lg focus:outline-none focus:border-emerald-500"
             >
               <option value={45}>最敬礼 (45°)</option>
               <option value={30}>敬礼 (30°)</option>
               <option value={15}>会釈 (15°)</option>
             </select>
+            <InfoPopover title="お辞儀の角度基準 (Bow Angles)">
+              <ul className="space-y-1 text-[11px]">
+                <li>
+                  <strong>最敬礼 (45°):</strong> 深い感謝・謝罪（適正 40°〜50°）
+                </li>
+                <li>
+                  <strong>敬礼 (30°):</strong> 入退室時の標準挨拶（適正 25°〜35°）
+                </li>
+                <li>
+                  <strong>会釈 (15°):</strong> 軽い挨拶・すれ違い（適正 11°〜20°）
+                </li>
+              </ul>
+            </InfoPopover>
           </div>
 
-          <div className="flex items-center border border-zinc-800 rounded-sm overflow-hidden bg-zinc-900">
-            <button
-              type="button"
-              onClick={() => onSelectView('practice')}
-              className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-                activeView === 'practice'
-                  ? 'bg-zinc-800 text-zinc-100'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <Video className="w-3.5 h-3.5 shrink-0" />
-              <span>実践スタジオ (Live Studio)</span>
-            </button>
-          </div>
+          {/* Live Studio Button */}
+          <button
+            type="button"
+            onClick={() => onSelectView('practice')}
+            className={`px-3.5 py-2 text-xs font-semibold rounded-xl border flex items-center gap-1.5 transition-all ${
+              activeView === 'practice'
+                ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
+                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+            }`}
+          >
+            <Video className="w-3.5 h-3.5" />
+            <span>実践 (Studio)</span>
+          </button>
 
+          {/* Load Sample Data Button */}
           <button
             type="button"
             data-testid="load-sample-btn"
             onClick={onLoadSampleData}
-            className={`px-3 py-1.5 text-xs font-medium rounded-sm border flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+            className={`px-3.5 py-2 text-xs font-semibold rounded-xl border flex items-center gap-1.5 transition-all ${
               activeView === 'diagnostic'
-                ? 'bg-emerald-950/80 border-emerald-600 text-emerald-200'
-                : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-zinc-200'
+                ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
             }`}
           >
-            <Database className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>サンプル結果を表示 (Load Sample Data)</span>
+            <Database className="w-3.5 h-3.5" />
+            <span>サンプル結果を表示 (Sample)</span>
           </button>
         </div>
       </div>
