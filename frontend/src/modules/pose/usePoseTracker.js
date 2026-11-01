@@ -23,7 +23,7 @@ const CALIBRATION_DURATION_MS = 1000;
  * coordinate buffer collection.
  */
 export function usePoseTracker({ videoRef }) {
-  const [trackerStatus, setTrackerStatus] = useState('initializing'); // 'initializing' | 'camera_active' | 'simulated' | 'camera_error'
+  const [trackerStatus, setTrackerStatus] = useState('initializing'); // 'initializing' | 'camera_active' | 'video_demo' | 'simulated' | 'camera_error'
   const [statusDetail, setStatusDetail] = useState('カメラ接続中... (Connecting Camera)');
   const [cameraError, setCameraError] = useState(null);
   const [liveTelemetry, setLiveTelemetry] = useState(() => {
@@ -61,7 +61,12 @@ export function usePoseTracker({ videoRef }) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
     }
-  }, []);
+    if (videoRef?.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+      videoRef.current.removeAttribute('src');
+    }
+  }, [videoRef]);
 
   const runSimulationTick = useCallback((nowMs) => {
     if (nowMs - lastFrameProcessedMsRef.current >= FRAME_INTERVAL_MS) {
@@ -277,6 +282,43 @@ export function usePoseTracker({ videoRef }) {
     }
   }, [loadPoseLandmarker, runCameraInferenceTick, runSimulationTick, stopLoopAndStream, videoRef]);
 
+  const startConceptVideoDemo = useCallback(
+    async (videoUrl = '/concept_demo.mp4') => {
+      setTrackerStatus('initializing');
+      setStatusDetail('デモ動画読込中... (Loading Concept Video)');
+      setCameraError(null);
+      stopLoopAndStream();
+
+      try {
+        await loadPoseLandmarker();
+        const videoEl = videoRef?.current;
+        if (!videoEl) {
+          throw new Error('Video element unavailable');
+        }
+        videoEl.srcObject = null;
+        videoEl.src = videoUrl;
+        videoEl.loop = true;
+        videoEl.muted = false;
+        await videoEl.play();
+
+        simStartMsRef.current = performance.now();
+        calibrationVectorsRef.current = [];
+        smoothingBufferRef.current = [];
+        setTrackerStatus('video_demo');
+        setStatusDetail('コンセプト動画解析中 (Concept Video · 30 FPS)');
+        rafIdRef.current = requestAnimationFrame(runCameraInferenceTick);
+        return 'video_demo';
+      } catch (err) {
+        setCameraError(err?.message || 'Concept video playback failed');
+        setTrackerStatus('simulated');
+        setStatusDetail('デモ骨格モード (Demo Skeleton)');
+        rafIdRef.current = requestAnimationFrame(runSimulationTick);
+        return 'simulated';
+      }
+    },
+    [loadPoseLandmarker, runCameraInferenceTick, runSimulationTick, stopLoopAndStream, videoRef]
+  );
+
   const recalibrateUprightBaseline = useCallback(() => {
     calibrationVectorsRef.current = [];
     smoothingBufferRef.current = [];
@@ -290,7 +332,11 @@ export function usePoseTracker({ videoRef }) {
     sessionStartMsRef.current = performance.now();
     isRecordingRef.current = true;
 
-    if (trackerStatus !== 'camera_active' && !mediaStreamRef.current) {
+    if (
+      trackerStatus !== 'camera_active' &&
+      trackerStatus !== 'video_demo' &&
+      !mediaStreamRef.current
+    ) {
       await initializeTracker();
     }
   }, [initializeTracker, trackerStatus]);
@@ -314,6 +360,7 @@ export function usePoseTracker({ videoRef }) {
     cameraError,
     liveTelemetry,
     initializeTracker,
+    startConceptVideoDemo,
     recalibrateUprightBaseline,
     startSessionCapture,
     stopSessionCapture,

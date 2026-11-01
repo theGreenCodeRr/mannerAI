@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Camera,
   CheckCircle2,
+  Film,
   Mic,
   Play,
   RefreshCw,
@@ -36,6 +37,7 @@ export default function PracticeView({
     cameraError,
     liveTelemetry,
     initializeTracker,
+    startConceptVideoDemo,
     recalibrateUprightBaseline,
     startSessionCapture,
     stopSessionCapture,
@@ -63,12 +65,13 @@ export default function PracticeView({
     return () => clearInterval(timer);
   }, [isSessionRunning]);
 
-  // Render live skeletal overlay over webcam video (mirrored when real camera is active)
+  // Render live skeletal overlay over webcam video or concept demo video
   useEffect(() => {
     const canvas = overlayCanvasRef.current;
     if (!canvas || !liveTelemetry.currentFrame) return;
     const ctx = canvas.getContext('2d');
     const isCameraLive = trackerStatus === 'camera_active';
+    const isVideoDemo = trackerStatus === 'video_demo';
     drawSkeletonOnCanvas(
       ctx,
       canvas.width,
@@ -77,7 +80,7 @@ export default function PracticeView({
       {
         mode: 'live',
         targetAngleDeg: targetBowAngle,
-        drawBackground: !isCameraLive,
+        drawBackground: !isCameraLive && !isVideoDemo,
         mirrorHorizontal: isCameraLive,
       }
     );
@@ -133,6 +136,8 @@ export default function PracticeView({
     liveTelemetry.torsoAngleDeg <= targetMeta.maxDeg;
 
   const isCameraActive = trackerStatus === 'camera_active';
+  const isVideoDemo = trackerStatus === 'video_demo';
+  const hasVisualVideo = isCameraActive || isVideoDemo;
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-5 space-y-4">
@@ -141,18 +146,18 @@ export default function PracticeView({
         {/* Left: Primary Camera & Skeletal Viewport (8 cols) */}
         <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
           {/* Viewport Header */}
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
+          <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  isCameraActive
+                  hasVisualVideo
                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                     : 'bg-amber-50 text-amber-700 border border-amber-200'
                 }`}
               >
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    isCameraActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                    hasVisualVideo ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
                   }`}
                 />
                 {statusDetail}
@@ -171,9 +176,23 @@ export default function PracticeView({
                   className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
                 >
                   <Camera className="w-3.5 h-3.5" />
-                  <span>カメラを有効化 (Enable Camera)</span>
+                  <span>カメラ起動 (Webcam)</span>
                 </button>
               )}
+
+              <button
+                type="button"
+                data-testid="run-concept-video-btn"
+                onClick={() => startConceptVideoDemo('/concept_demo.mp4')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-colors ${
+                  isVideoDemo
+                    ? 'bg-emerald-600 border-emerald-600 text-white'
+                    : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                }`}
+              >
+                <Film className="w-3.5 h-3.5" />
+                <span>デモ動画で骨格解析 (Concept Video)</span>
+              </button>
 
               <button
                 type="button"
@@ -182,7 +201,7 @@ export default function PracticeView({
                 title="現在の直立姿勢を0°としてリセット"
               >
                 <RefreshCw className="w-3 h-3" />
-                <span>0°基準リセット</span>
+                <span>0°リセット</span>
               </button>
             </div>
           </div>
@@ -193,9 +212,9 @@ export default function PracticeView({
               ref={videoRef}
               autoPlay
               playsInline
-              muted
-              className={`absolute inset-0 w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${
-                isCameraActive ? 'opacity-100' : 'opacity-0'
+              muted={!isVideoDemo}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                isCameraActive ? 'transform -scale-x-100 opacity-100' : isVideoDemo ? 'opacity-100' : 'opacity-0'
               }`}
             />
             <canvas

@@ -7,11 +7,19 @@ MannerAI is a privacy-preserving, multimodal biomechanical and acoustic verifica
 
 ## Visual Overview / 画面プレビュー
 
-### 1. Live Practice Studio (`PracticeView.jsx` / 実践スタジオ)
+### 1. Concept Demo Video Showcase (`concept_demo.mp4` / コンセプト動画)
+
+<video src="concept_demo.mp4" controls width="100%" poster="docs/screenshots/live_practice_view.png">
+  <a href="concept_demo.mp4">Watch the MannerAI Concept Demo Video (concept_demo.mp4)</a>
+</video>
+
+> **Direct Video File:** [`concept_demo.mp4`](concept_demo.mp4) — Also accessible directly inside the web application via the **`コンセプト動画 (Demo Video)`** modal in the top navigation bar or the **`デモ動画で骨格解析 (Concept Video)`** live MediaPipe PoseLandmarker mode in the Practice Studio.
+
+### 2. Live Practice Studio (`PracticeView.jsx` / 実践スタジオ)
 ![Live Practice Studio](docs/screenshots/live_practice_view.png)
 *Real-time 30 FPS skeletal joint projection, hip-pivot inclination arc gauge, 1.0-second upright baseline vector calibration (`v_base`), lateral shoulder tilt telemetry, and microphone RMS monitoring.*
 
-### 2. Post-Session Diagnostic Dashboard (`DiagnosticDashboard.jsx` / 解析ダッシュボード)
+### 3. Post-Session Diagnostic Dashboard (`DiagnosticDashboard.jsx` / 解析ダッシュボード)
 ![Post-Session Diagnostic Split View](docs/screenshots/diagnostic_split_view.png)
 *12-column post-session diagnostic workspace: 5-column 100-point rubric scorecard and clickable filler-annotated transcript on the left; 7-column synchronized dual-canvas stick-figure comparison (`45° Ideal Reference` vs `65° Actual Recorded`) and event scrubber on the right.*
 
